@@ -31,9 +31,110 @@ PlaneJSON::PlaneJSON(const char *frame_str) :
     carriage_state = carriageState::WAITING_FOR_PICKUP;
     model = default_model;
     auto *_sitl = AP::sitl();
+	water_glider = true;
+	if (water_glider)
+	{
+		model.mass =3.1;
+		
+		model.refSpan = 0.1; // m
+        model.refChord = 0.914; // m
+        model.IXX = 0.01; // kg-m^2
+        model.IYY = 0.35; // kg-m^2
+        model.IZZ = 0.35; // kg-m^2
+		
+		model.Sref = 0.919;
+		
+		model.CA2 = 0.24;
+		model.CA1 = 0.0048;
+		model.CA0 = 0.00061;
+		
+		model.CN2 = 0.08;
+		model.CN1 = 0.188;
+		model.CN0 = 0;
+		
+		model.CY2 = 0;
+		model.CY1 = 0;
+		model.CY0 = 0.188;
+		
+		model.Cl2 = 0;
+		model.Cl1 = 0;
+		model.Cl0 = 0;
+		
+		model.Cm2 = 0;
+		model.Cm1 = -0.078;
+		model.Cm0 = 0;
+		
+		model.Cn2 = 0;
+		model.Cn1 = 0;
+		model.Cn0 = 0.078;
+		
+		//Pitch damping
+		model.Cmq = -2;
+		
+		//No roll damping
+		model.Clp2 = 0;
+		model.Clp1 = 0;
+		model.Clp0 = -0.1;
+		
+		//No dutch roll damping
+		model.Clr2 = 0;
+		model.Clr1 = 0;
+		model.Clr0 = 0;
+		model.Cnp2 = 0;
+		model.Cnp1 = 0;
+		model.Cnp0 = 0;
+		
+		//Yaw damping
+		model.Cnr2 = 0;
+		model.Cnr1 = 0;
+		model.Cnr0 = -2;
+		
+		//Control
+		//elev
+		model.elevatorDeflectionLimitDeg = -15;
+        model.deltaCNperRadianElev = -0.005;
+        model.deltaCAperRadianElev = 0;
+        model.deltaCmperRadianElev = 0.003;
+        model.deltaCYperRadianElev = 0;
+        model.deltaClperRadianElev = 0;
+        model.deltaCnperRadianElev = 0;
+		
+		//rudder
+		model.rudderDeflectionLimitDeg = 15;
+        model.deltaCNperRadianRud = 0;
+        model.deltaCAperRadianRud = 0;
+        model.deltaCmperRadianRud = 0;
+        model.deltaCYperRadianRud = 0.005;
+        model.deltaClperRadianRud = 0;
+        model.deltaCnperRadianRud = -0.003;
+		
+		// aileron
+        model.aileronDeflectionLimitDeg = 7;
+        model.deltaCNperRadianAil = 0;
+        model.deltaCAperRadianAil = 0;
+        model.deltaCmperRadianAil = 0;
+        model.deltaCYperRadianAil = 0;
+
+        // quadratic in alpharad
+        model.deltaClperRadianAil0 = 0.01;
+        model.deltaClperRadianAil1 = 0;
+        model.deltaClperRadianAil2 = 0;
+
+        // quadratic in alpharad
+        model.deltaCnperRadianAil0 = 0;
+        model.deltaCnperRadianAil1 = 0;
+        model.deltaCnperRadianAil2 = 0;
+		
+		
+	}
+	
     _sitl->setalt.set_and_save(0);
     _sitl->setspeed.set_and_save(0);
     _sitl->setpitch.set_and_save(0);
+}
+
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
 }
 
 // Torque calculation function
@@ -79,8 +180,16 @@ Vector3f PlaneJSON::getTorque(float inputAileron, float inputElevator, float inp
     Cl += pqr_norm.z * Clr;
     Cn += pqr_norm.x * Cnp;
     Cn += pqr_norm.z * Cnr;
-
-    Cm += pqr_norm.y * m.Cmq;
+	
+	//if (water_glider)
+	//{
+	//	Cm += sq(pqr_norm.y)*pqr_norm.y * m.Cmq;
+	//}
+	//else
+	//{
+	Cm += pqr_norm.y * m.Cmq;
+	//}
+    
 
     float Mx = Cl * qPa * m.Sref * m.refSpan;
     float My = Cm * qPa * m.Sref * m.refChord;
@@ -188,11 +297,12 @@ void PlaneJSON::calculate_forces(const struct sitl_input &input, Vector3f &rot_a
     filtered_servo_setup(0, 1100, 1900, model.aileronDeflectionLimitDeg);
     filtered_servo_setup(1, 1100, 1900, model.elevatorDeflectionLimitDeg);
     filtered_servo_setup(3, 1100, 1900, model.rudderDeflectionLimitDeg);
+	//filtered_servo_setup(5, 1100, 1900, model.rudderDeflectionLimitDeg);
     
     float aileron  = filtered_servo_angle(input, 0);
     float elevator = filtered_servo_angle(input, 1);
     float rudder   = filtered_servo_angle(input, 3);
-    float throttle = 0;
+    float throttle = filtered_servo_angle(input, 2);
     float balloon_actuator  = filtered_servo_range(input, 5);
     float balloon_cut = filtered_servo_range(input, 9);
 
@@ -335,6 +445,11 @@ bool PlaneJSON::on_ground() const
  */
 bool PlaneJSON::update_balloon(float balloon_actuator, Vector3f &force, Vector3f &rot_accel)
 {
+	
+	
+	
+	
+	
     if (!hal.util->get_soft_armed()) {
         return false;
     }
@@ -370,11 +485,20 @@ bool PlaneJSON::update_balloon(float balloon_actuator, Vector3f &force, Vector3f
     // rate increase in separation between attachment point on plane and balloon
     // tension force in tether due to stiffness and damping
     float tension_force = MAX(0.0f, (separation_distance - model.tetherLength) * tether_stiffness);
+	
+	uint64_t now = AP_HAL::millis64();
+	if (now > starttime+3000)
+	{
+		hal.console->printf("carriageState %d \n", (int) carriage_state);
+		hal.console->printf("tension %f \n", tension_force);
+		starttime = now;
+	}
     if (tension_force > 0.0f) {
         tension_force += constrain_float(separation_speed * tether_damping, 0.0f, 0.05f * tension_force);
     }
 
     if (carriage_state == carriageState::WAITING_FOR_PICKUP && tension_force > 1.2f * model.mass * GRAVITY_MSS && balloon_actuator > 0.01f) {
+		hal.console->printf("CONDITION WORKS \n");
         carriage_state = carriageState::WAITING_FOR_RELEASE;
     }
 

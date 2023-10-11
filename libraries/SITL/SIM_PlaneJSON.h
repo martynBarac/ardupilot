@@ -43,7 +43,7 @@ protected:
     const float hover_throttle = 0.7f;
     float alpharad;
     float betarad;
-
+	uint64_t starttime = 0;
     /*
       parameters that define the multicopter model. Can be loaded from
       a json file to give a custom model
@@ -170,9 +170,9 @@ protected:
         float tetherPogoFreq = 2.0f;      // measured vertical frequency of on tether (Hz)
 
     } default_model;
-
+	
     struct Model model;
-
+	
     Vector3f getForce(float inputAileron, float inputElevator, float inputRudder) const;
     Vector3f getTorque(float inputAileron, float inputElevator, float inputRudder, const Vector3f &force) const;
     bool update_balloon(float balloon, Vector3f &force, Vector3f &rot_accel);
@@ -189,6 +189,7 @@ protected:
         RELEASED = 4 // had been released by launch vehicle
     } carriage_state;
     bool plane_air_release;    // true when plane has separated from the airborne launching platform
+	bool water_glider = false;
 };
 
 } // namespace SITL
