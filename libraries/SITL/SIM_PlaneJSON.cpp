@@ -44,37 +44,36 @@ PlaneJSON::PlaneJSON(const char *frame_str) :
 		
 		model.Sref = 0.919;
 		
-		model.CA2 = 0.24;
-		model.CA1 = 0.0048;
-		model.CA0 = 0.00061;
+		model.CA2 = -0.428;
+		model.CA1 = -0.0;
+		model.CA0 = -0.006;
 		
-		model.CN2 = 0.08;
-		model.CN1 = 0.188;
+		model.CN2 = 0;
+		model.CN1 = 0.174;
 		model.CN0 = 0;
 		
 		model.CY2 = 0;
 		model.CY1 = 0;
-		model.CY0 = 0.188;
+		model.CY0 = -0.174;
 		
 		model.Cl2 = 0;
 		model.Cl1 = 0;
 		model.Cl0 = 0;
 		
 		model.Cm2 = 0;
-		model.Cm1 = -0.078;
+		model.Cm1 = -0.081;
 		model.Cm0 = 0;
 		
 		model.Cn2 = 0;
 		model.Cn1 = 0;
-		model.Cn0 = 0.078;
+		model.Cn0 = 0.081;
 		
 		//Pitch damping
-		model.Cmq = -2;
-		
-		//No roll damping
+		model.Cmq  = -0.0756;
+		//Roll damping
 		model.Clp2 = 0;
 		model.Clp1 = 0;
-		model.Clp0 = -0.1;
+		model.Clp0 = -0.000179;
 		
 		//No dutch roll damping
 		model.Clr2 = 0;
@@ -87,14 +86,14 @@ PlaneJSON::PlaneJSON(const char *frame_str) :
 		//Yaw damping
 		model.Cnr2 = 0;
 		model.Cnr1 = 0;
-		model.Cnr0 = -2;
+		model.Cnr0 = -0.0756;
 		
 		//Control
 		//elev
 		model.elevatorDeflectionLimitDeg = -15;
-        model.deltaCNperRadianElev = -0.005;
+        model.deltaCNperRadianElev = -0.046;
         model.deltaCAperRadianElev = 0;
-        model.deltaCmperRadianElev = 0.003;
+        model.deltaCmperRadianElev = 0.0369;
         model.deltaCYperRadianElev = 0;
         model.deltaClperRadianElev = 0;
         model.deltaCnperRadianElev = 0;
@@ -104,9 +103,9 @@ PlaneJSON::PlaneJSON(const char *frame_str) :
         model.deltaCNperRadianRud = 0;
         model.deltaCAperRadianRud = 0;
         model.deltaCmperRadianRud = 0;
-        model.deltaCYperRadianRud = 0.005;
+        model.deltaCYperRadianRud = 0.0369;
         model.deltaClperRadianRud = 0;
-        model.deltaCnperRadianRud = -0.003;
+        model.deltaCnperRadianRud = -0.046;
 		
 		// aileron
         model.aileronDeflectionLimitDeg = 7;
@@ -116,7 +115,7 @@ PlaneJSON::PlaneJSON(const char *frame_str) :
         model.deltaCYperRadianAil = 0;
 
         // quadratic in alpharad
-        model.deltaClperRadianAil0 = 0.01;
+        model.deltaClperRadianAil0 = 0.046;
         model.deltaClperRadianAil1 = 0;
         model.deltaClperRadianAil2 = 0;
 
@@ -174,26 +173,17 @@ Vector3f PlaneJSON::getTorque(float inputAileron, float inputElevator, float inp
     Vector3f pqr_norm = gyro;
     pqr_norm.x *= 0.5 * m.refSpan / tas;
     pqr_norm.y *= 0.5 * m.refChord / tas;
-    pqr_norm.z *= 0.5 * m.refSpan / tas;
+    pqr_norm.z *= 0.5 * m.refChord / tas;
 
     Cl += pqr_norm.x * Clp;
     Cl += pqr_norm.z * Clr;
     Cn += pqr_norm.x * Cnp;
     Cn += pqr_norm.z * Cnr;
-	
-	//if (water_glider)
-	//{
-	//	Cm += sq(pqr_norm.y)*pqr_norm.y * m.Cmq;
-	//}
-	//else
-	//{
 	Cm += pqr_norm.y * m.Cmq;
-	//}
-    
-
+	
     float Mx = Cl * qPa * m.Sref * m.refSpan;
     float My = Cm * qPa * m.Sref * m.refChord;
-    float Mz = Cn * qPa * m.Sref * m.refSpan;
+    float Mz = Cn * qPa * m.Sref * m.refChord; // Rocket design multiply by chord instead of Span
 
 
 #if 0
@@ -489,8 +479,11 @@ bool PlaneJSON::update_balloon(float balloon_actuator, Vector3f &force, Vector3f
 	uint64_t now = AP_HAL::millis64();
 	if (now > starttime+3000)
 	{
-		hal.console->printf("carriageState %d \n", (int) carriage_state);
-		hal.console->printf("tension %f \n", tension_force);
+		//hal.console->printf("carriageState %d \n", (int) carriage_state);
+		//hal.console->printf("tension %f \n", tension_force);
+		hal.console->printf("forces %f ", (float) force.x);
+		hal.console->printf("%f  ", (float) force.y);
+		hal.console->printf("%f \n", (float) force.z);
 		starttime = now;
 	}
     if (tension_force > 0.0f) {
@@ -498,7 +491,6 @@ bool PlaneJSON::update_balloon(float balloon_actuator, Vector3f &force, Vector3f
     }
 
     if (carriage_state == carriageState::WAITING_FOR_PICKUP && tension_force > 1.2f * model.mass * GRAVITY_MSS && balloon_actuator > 0.01f) {
-		hal.console->printf("CONDITION WORKS \n");
         carriage_state = carriageState::WAITING_FOR_RELEASE;
     }
 

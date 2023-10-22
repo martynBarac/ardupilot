@@ -1,6 +1,9 @@
 # hw definition file for processing by chibios_hwdef.py
 # for the HolybroV6C hardware
 
+env SIM_ENABLED 1
+define AP_GPS_DRONECAN_ENABLED 1
+define HAL_ENABLE_DRONECAN_DRIVERS 1
 
 # default to all pins low to avoid ESD issues
 #DEFAULTGPIO OUTPUT LOW PULLDOWN

@@ -100,7 +100,7 @@ protected:
         // controls neutral dynamic derivatives
         // p, q, r are gyro rates
         float Cmq = -6.1866;
-
+		
         float Clp2 = 0.156;
         float Clp1 = 0.0129;
         float Clp0 = -0.315;
